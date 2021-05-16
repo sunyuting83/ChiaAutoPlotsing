@@ -1,7 +1,6 @@
 package main
 
 import (
-	sendmail "autoplots/sendMail"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -35,19 +34,13 @@ type Config struct {
 	Sleep     int    `yaml:"Sleep"`
 }
 
-type Mail struct {
-	SMTPHost     string `yaml:"SMTPHost"`
-	SMTPPort     string `yaml:"SMTPPort"`
-	SMTPUsername string `yaml:"SMTPUsername"`
-	SMTPPassword string `yaml:"SMTPPassword"`
-	SendMail     string `yaml:"SendMail"`
-	Title        string `yaml:"Tiele"`
-	Content      string `yaml:"Content"`
-}
-
 func main() {
 	CurrentPath, _ := GetCurrentPath()
-	ConfigFile := strings.Join([]string{CurrentPath, "config.yaml"}, "\\")
+	LinkPathStr := "/"
+	if runtime.GOOS == "windows" {
+		LinkPathStr = "\\"
+	}
+	ConfigFile := strings.Join([]string{CurrentPath, "config.yaml"}, LinkPathStr)
 
 	confYaml := new(Config)
 	yamlFile, err := ioutil.ReadFile(ConfigFile)
@@ -62,19 +55,6 @@ func main() {
 		os.Exit(0)
 	}
 
-	mailYaml := new(Mail)
-	MailFile := strings.Join([]string{CurrentPath, "mail.yaml"}, "\\")
-	yamlMailFile, err := ioutil.ReadFile(MailFile)
-	if err != nil {
-		fmt.Println("读取配置文件出错")
-		os.Exit(0)
-	}
-	err = yaml.Unmarshal(yamlMailFile, mailYaml)
-	// err = yaml.Unmarshal(yamlFile, &resultMap)
-	if err != nil {
-		fmt.Println("读取配置文件出错")
-		os.Exit(0)
-	}
 	homedir, err := GetUserInfo()
 	if err != nil {
 		fmt.Println("获取用户目录失败")
@@ -84,6 +64,14 @@ func main() {
 	rootPath := strings.Join([]string{homedir, `AppData\Local\chia-blockchain`}, `\`)
 	if !IsDir(rootPath) {
 		fmt.Println("获取Chia运行目录失败")
+		os.Exit(0)
+	}
+	if !IsDir(confYaml.TempPath) {
+		fmt.Println("获取缓存目录失败，请检查配置文件")
+		os.Exit(0)
+	}
+	if !IsDir(confYaml.FinalPath) {
+		fmt.Println("获取数据目录失败，请检查配置文件")
 		os.Exit(0)
 	}
 	files, _ := ioutil.ReadDir(rootPath)
@@ -108,17 +96,15 @@ func main() {
 		time.Sleep(time.Duration(confYaml.Sleep) * time.Second)
 	}
 	startTime := time.Now().Format("2006-01-02 15:04:05")
-	// CmdAndChangeDirToFile("cmd", params)
 	appName := "chia.exe"
 	task := func() {
 		status, _, _, _ := isProcessExist(appName)
 		if !status {
-			content := strings.Join([]string{mailYaml.Content, time.Now().Format("2006-01-02 15:04:05")}, " 完成于 ")
-			title := strings.Join([]string{mailYaml.Title, startTime}, " 开始于 ")
+			// content := strings.Join([]string{mailYaml.Content, time.Now().Format("2006-01-02 15:04:05")}, " 完成于 ")
+			// title := strings.Join([]string{mailYaml.Title, startTime}, " 开始于 ")
 			wg.Add(1)
-			go sendmail.SendEmail(mailYaml.SendMail, mailYaml.SMTPHost, mailYaml.SMTPPort, mailYaml.SMTPUsername, mailYaml.SMTPPassword, mailYaml.Title, mailYaml.Content)
+			fmt.Println(startTime + "done")
 			wg.Wait()
-			fmt.Println(content, title)
 		}
 	}
 	var ch chan int
