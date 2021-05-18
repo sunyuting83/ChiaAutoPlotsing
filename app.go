@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"os/user"
+	"path"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -127,6 +128,14 @@ func main() {
 				if err != nil {
 					fmt.Println("删除失败")
 				}
+				dir, err := ioutil.ReadDir(LogPath)
+				if err != nil {
+					fmt.Println("删除日志文件失败")
+				}
+				for _, d := range dir {
+					os.RemoveAll(path.Join([]string{LogPath, d.Name()}...))
+				}
+
 				fmt.Println(time.Now().Format("2006-01-02 15:04:05"))
 				fmt.Println("done")
 				os.Exit(0)
