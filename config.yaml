@@ -3,10 +3,11 @@ KSize : "32"
 Buffer : "4000"
 Threads : "2"
 Buckets : "128"
-TempPath : "/home/sun/Works/go/src/ChiaAutoPlotsing/test"
-Total : 1
+TempPath : "/home"
+Total : 3
 Sleep : 0
-RunPath : "/home/sun/Works/go/src/ChiaAutoPlotsing/test"
+RunPath : "/home/test"
 FinalPath :
-  - "/home/sun/Works/go/src/ChiaAutoPlotsing/test"
-  - "/home/sun/Works/go/src/ChiaAutoPlotsing/test"
+  - "/home/test1"
+  - "/home/test2"
+  - "/home/test3"

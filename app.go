@@ -11,15 +11,10 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 	"unsafe"
 
 	"gopkg.in/yaml.v2"
-)
-
-var (
-	wg sync.WaitGroup
 )
 
 type Config struct {
@@ -114,22 +109,29 @@ func main() {
 	ChiaExec := GetChieExec(ChiaAppPath)
 	farmKey, poolKey := GetPublicKey(ChiaAppPath, ChiaExec)
 
-	StartPlots(LogPath, CurrentPath, ChiaExec, farmKey, poolKey, *confYaml)
+	NumberData := strings.Join([]string{CurrentPath, "nb"}, "/")
+	StartPlots(LogPath, NumberData, ChiaExec, farmKey, poolKey, *confYaml)
+	fmt.Println(time.Now().Format("2006-01-02 15:04:05"))
 
 	task := func() {
 		status, _, _, _ := isProcessExist(appName)
 		if !status {
-			// content := strings.Join([]string{mailYaml.Content, time.Now().Format("2006-01-02 15:04:05")}, " 完成于 ")
-			// title := strings.Join([]string{mailYaml.Title, startTime}, " 开始于 ")
-			time.Sleep(time.Duration(180) * time.Second)
-			current := GetCurrentNumber(CurrentPath, len(confYaml.FinalPath)-1)
-			if current <= 0 {
-				wg.Add(1)
+			time.Sleep(time.Duration(30) * time.Second)
+			current := GetCurrentNumber(NumberData, len(confYaml.FinalPath)-1)
+			WriteCurrentNumber(NumberData, current-1)
+			current = GetCurrentNumber(NumberData, len(confYaml.FinalPath)-1)
+			fmt.Println(current)
+			if current < 0 {
+				err := os.Remove(NumberData)
+
+				if err != nil {
+					fmt.Println("删除失败")
+				}
+				fmt.Println(time.Now().Format("2006-01-02 15:04:05"))
 				fmt.Println("done")
-				wg.Wait()
 				os.Exit(0)
 			}
-			StartPlots(LogPath, CurrentPath, ChiaExec, farmKey, poolKey, *confYaml)
+			StartPlots(LogPath, NumberData, ChiaExec, farmKey, poolKey, *confYaml)
 		}
 	}
 	var ch chan int
@@ -144,15 +146,16 @@ func main() {
 }
 
 func RunExec(ChiaExec, LogPath string) {
-	cmd := exec.Command("nohup", ChiaExec, ">", LogPath, "2>&1")
+	LinCmd := strings.Join([]string{`nohup `, ChiaExec, ` > `, LogPath, " 2>&1"}, "")
+	cmd := exec.Command("/bin/bash", "-c", LinCmd)
 	if runtime.GOOS == "windows" {
 		cmd = exec.Command("cmd", "/C", "start", ChiaExec)
 	}
 	fmt.Println(cmd.Args)
 	cmd.Start()
 }
-func StartPlots(LogPath, CurrentPath, ChiaExec, farmKey, poolKey string, confYaml Config) {
-	current := GetCurrentNumber(CurrentPath, len(confYaml.FinalPath)-1)
+func StartPlots(LogPath, NumberData, ChiaExec, farmKey, poolKey string, confYaml Config) {
+	current := GetCurrentNumber(NumberData, len(confYaml.FinalPath)-1)
 
 	ChiaCmd := strings.Join([]string{ChiaExec, "plots", "create", "-n", confYaml.NumPlots, "-k", confYaml.KSize, "-b", confYaml.Buffer, "-r", confYaml.Threads, "-f", farmKey, "-p", poolKey, "-t", confYaml.TempPath, "-d", confYaml.FinalPath[current]}, " ")
 	for i := 0; i < confYaml.Total; i++ {
@@ -197,36 +200,88 @@ func GetPublicKey(ChiaAppPath, ChiaExec string) (farmKey, poolKey string) {
 
 func GetChieExec(ChiaAppPath string) (ChiaExec string) {
 	ChiaExe := "chia"
-	LineString := `\`
+	LineString := `/`
 	if runtime.GOOS == "windows" {
 		ChiaExe = "chia.exe"
-		LineString = "/"
+		LineString = "\\"
 	}
 	ChiaExec = strings.Join([]string{ChiaAppPath, ChiaExe}, LineString)
 	return
 }
 
 func isProcessExist(appName string) (bool, string, int, int) {
-	// 做win的判断  这里没做完
-	appary := make(map[string]int)
-	cmd := exec.Command("cmd", "/C", "tasklist")
-	output, _ := cmd.Output()
-	n := strings.Index(string(output), "System")
-	if n == -1 {
-		fmt.Println("no find")
-		os.Exit(1)
+	if runtime.GOOS == "windows" {
+		appary := make(map[string]int)
+		cmd := exec.Command("cmd", "/C", "tasklist")
+		output, _ := cmd.Output()
+		n := strings.Index(string(output), "System")
+		if n == -1 {
+			fmt.Println("no find")
+			os.Exit(1)
+		}
+		data := string(output)[n:]
+		fields := strings.Fields(data)
+		lange := []int{}
+		for k, v := range fields {
+			if v == appName {
+				appary[appName], _ = strconv.Atoi(fields[k+1])
+				lange = append(lange, appary[appName])
+			}
+		}
+		if len(lange) > 0 {
+			return true, appName, appary[appName], len(lange)
+		}
+		return false, appName, -1, 0
 	}
-	data := string(output)[n:]
-	fields := strings.Fields(data)
-	lange := []int{}
-	for k, v := range fields {
-		if v == appName {
-			appary[appName], _ = strconv.Atoi(fields[k+1])
-			lange = append(lange, appary[appName])
+	command := strings.Join([]string{`ps -ef | grep -v "grep" | grep "`, appName, `" | awk '{print $2}'`}, "")
+	cmd := exec.Command("/bin/bash", "-c", command)
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		fmt.Println("StdoutPipe: " + err.Error())
+		return false, appName, -1, 0
+	}
+
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		fmt.Println("StderrPipe: ", err.Error())
+		return false, appName, -1, 0
+	}
+
+	if err := cmd.Start(); err != nil {
+		fmt.Println("Start: ", err.Error())
+		return false, appName, -1, 0
+	}
+
+	bytesErr, err := ioutil.ReadAll(stderr)
+	if err != nil {
+		fmt.Println("ReadAll stderr: ", err.Error())
+		return false, appName, -1, 0
+	}
+
+	if len(bytesErr) != 0 {
+		fmt.Printf("stderr is not nil: %s", bytesErr)
+		return false, appName, -1, 0
+	}
+
+	bytes, err := ioutil.ReadAll(stdout)
+	if err != nil {
+		fmt.Println("ReadAll stdout: ", err.Error())
+		return false, appName, -1, 0
+	}
+
+	if err := cmd.Wait(); err != nil {
+		fmt.Println("Wait: ", err.Error())
+		return false, appName, -1, 0
+	}
+	data := strings.Split(string(bytes), "\n")
+	var newLen []string
+	for _, v := range data {
+		if len(v) > 0 {
+			newLen = append(newLen, v)
 		}
 	}
-	if len(lange) > 0 {
-		return true, appName, appary[appName], len(lange)
+	if len(newLen) > 0 {
+		return true, appName, -1, len(newLen)
 	}
 	return false, appName, -1, 0
 }
@@ -299,8 +354,7 @@ func Byte2Int(data []byte) int {
 	return ret
 }
 
-func GetCurrentNumber(CurrentPath string, current int) (n int) {
-	NumberData := strings.Join([]string{CurrentPath, "nb"}, "/")
+func GetCurrentNumber(NumberData string, current int) (n int) {
 	if IsExist(NumberData) {
 		number, err := ioutil.ReadFile(NumberData)
 		if err != nil {
@@ -313,4 +367,8 @@ func GetCurrentNumber(CurrentPath string, current int) (n int) {
 		ioutil.WriteFile(NumberData, number, 0644)
 		return current
 	}
+}
+func WriteCurrentNumber(NumberData string, current int) {
+	number := Int2Byte(current)
+	ioutil.WriteFile(NumberData, number, 0644)
 }
