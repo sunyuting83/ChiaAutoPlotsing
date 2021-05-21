@@ -81,7 +81,7 @@ func main() {
 		fmt.Println("获取数据目录失败，请检查配置文件")
 		os.Exit(0)
 	}
-	LogPath = strings.Join([]string{CurrentPath, "log"}, "/")
+	LogPath = strings.Join([]string{CurrentPath, "log"}, LinkPathStr)
 	if !IsDir(LogPath) {
 		err := os.Mkdir(LogPath, os.ModePerm)
 		if err != nil {
@@ -108,9 +108,9 @@ func main() {
 		}
 	}
 	ChiaExec := GetChieExec(ChiaAppPath)
-	farmKey, poolKey := GetPublicKey(ChiaAppPath, ChiaExec)
+	farmKey, poolKey := GetPublicKey(ChiaExec)
 
-	NumberData := strings.Join([]string{CurrentPath, "nb"}, "/")
+	NumberData := strings.Join([]string{CurrentPath, "nb"}, LinkPathStr)
 	StartPlots(LogPath, NumberData, ChiaExec, farmKey, poolKey, *confYaml)
 	fmt.Println(time.Now().Format("2006-01-02 15:04:05"))
 
@@ -155,13 +155,17 @@ func main() {
 }
 
 func RunExec(ChiaExec, LogPath string) {
-	LinCmd := strings.Join([]string{`nohup `, ChiaExec, ` > `, LogPath, " 2>&1"}, "")
-	cmd := exec.Command("/bin/bash", "-c", LinCmd)
 	if runtime.GOOS == "windows" {
-		cmd = exec.Command("cmd", "/C", "start", ChiaExec)
+		WinCmd := strings.Join([]string{`start `, ChiaExec, ` >> `, LogPath}, "")
+		cmd := exec.Command("cmd", "/C", WinCmd)
+		fmt.Println(cmd.Args)
+		cmd.Start()
+	} else {
+		LinCmd := strings.Join([]string{`nohup `, ChiaExec, ` > `, LogPath, " 2>&1"}, "")
+		cmd := exec.Command("/bin/bash", "-c", LinCmd)
+		fmt.Println(cmd.Args)
+		cmd.Start()
 	}
-	fmt.Println(cmd.Args)
-	cmd.Start()
 }
 func StartPlots(LogPath, NumberData, ChiaExec, farmKey, poolKey string, confYaml Config) {
 	current := GetCurrentNumber(NumberData, len(confYaml.FinalPath)-1)
@@ -190,10 +194,13 @@ func GetUserInfo() (homedir string, err error) {
 	}
 	return u.HomeDir, nil
 }
-func GetPublicKey(ChiaAppPath, ChiaExec string) (farmKey, poolKey string) {
+func GetPublicKey(ChiaExec string) (farmKey, poolKey string) {
 	c := exec.Command(ChiaExec, "keys", "show")
 	pwdOutput, _ := c.Output()
-	pwdLine := strings.Split(string(pwdOutput), "\r\n")
+	pwdLine := strings.Split(string(pwdOutput), "\n")
+	if runtime.GOOS == "windows" {
+		pwdLine = strings.Split(string(pwdOutput), "\r\n")
+	}
 	for _, keys := range pwdLine {
 		if len(keys) > 0 {
 			if strings.Contains(keys, "Farmer") {
@@ -212,7 +219,7 @@ func GetChieExec(ChiaAppPath string) (ChiaExec string) {
 	LineString := `/`
 	if runtime.GOOS == "windows" {
 		ChiaExe = "chia.exe"
-		LineString = "\\"
+		LineString = `\`
 	}
 	ChiaExec = strings.Join([]string{ChiaAppPath, ChiaExe}, LineString)
 	return
