@@ -29,6 +29,8 @@ type Config struct {
 	Total     int      `yaml:"Total"`
 	Sleep     int      `yaml:"Sleep"`
 	RunPath   string   `yaml:"RunPath"`
+	FarmerKey string   `yaml:"FarmerKey"`
+	PoolKey   string   `yaml:"PoolKey"`
 }
 
 func main() {
@@ -56,6 +58,8 @@ func main() {
 		rootPath    string = confYaml.RunPath
 		appName     string = "chia"
 		LogPath     string
+		farmKey     string = confYaml.FarmerKey
+		poolKey     string = confYaml.PoolKey
 	)
 	if runtime.GOOS == "windows" {
 		homedir, err := GetUserInfo()
@@ -108,7 +112,9 @@ func main() {
 		}
 	}
 	ChiaExec := GetChieExec(ChiaAppPath)
-	farmKey, poolKey := GetPublicKey(ChiaExec)
+	if len(confYaml.FarmerKey) <= 0 && len(confYaml.PoolKey) <= 0 {
+		farmKey, poolKey = GetPublicKey(ChiaExec)
+	}
 
 	NumberData := strings.Join([]string{CurrentPath, "nb"}, LinkPathStr)
 	StartPlots(LogPath, NumberData, ChiaExec, farmKey, poolKey, *confYaml)

@@ -1,13 +1,26 @@
+##NumPlots 列队数量##
 NumPlots : "5"
+##KSize K32 K33##
 KSize : "32"
+##Buffer 内存##
 Buffer : "4000"
+##Threads 线程##
 Threads : "2"
+##Buckets 桶数##
 Buckets : "128"
-TempPath : "/home"
+##TempPath 缓存目录##
+TempPath : "d:\\"
+##Total 进程总数##
 Total : 3
-Sleep : 0
-RunPath : "/home/test"
+##Sleep 间隔时间 单位秒##
+Sleep : 60
+##RunPath Chia运行目录 windows无需设置##
+RunPath : ""
+##FarmerKey 农民公匙 留空自动获取第一个钱包的公匙##
+FarmerKey : ""
+##PoolKey 矿池公匙 留空自动获取第一个钱包的公匙##
+PoolKey : ""
+##FinalPath 最终目录 机械硬盘目录，支持多硬盘，每行一个盘符##
 FinalPath :
-  - "/home/test1"
-  - "/home/test2"
-  - "/home/test3"
+  - "e:\\"
+  - "f:\\"
