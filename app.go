@@ -25,6 +25,7 @@ type Config struct {
 	Threads   string   `yaml:"Threads"`
 	Buckets   string   `yaml:"Buckets"`
 	TempPath  string   `yaml:"TempPath"`
+	TempPath2 string   `yaml:"TempPath2"`
 	FinalPath []string `yaml:"FinalPath"`
 	Total     int      `yaml:"Total"`
 	Sleep     int      `yaml:"Sleep"`
@@ -96,6 +97,12 @@ func main() {
 	if !IsDir(confYaml.TempPath) {
 		fmt.Println("获取缓存目录失败，请检查配置文件")
 		os.Exit(0)
+	}
+	if len(confYaml.TempPath2) > 0 {
+		if !IsDir(confYaml.TempPath2) {
+			fmt.Println("获取缓存目录失败，请检查配置文件")
+			os.Exit(0)
+		}
 	}
 	if runtime.GOOS == "windows" {
 		files, _ := ioutil.ReadDir(rootPath)
@@ -183,6 +190,16 @@ func StartPlots(LogPath, NumberData, ChiaExec, farmKey, poolKey string, confYaml
 		logPath := strings.Join([]string{LogPath, LogFileName}, "/")
 		go RunExec(ChiaCmd, logPath)
 		time.Sleep(time.Duration(confYaml.Sleep) * time.Second)
+	}
+	if len(confYaml.TempPath2) > 0 {
+		ChiaCmd := strings.Join([]string{ChiaExec, "plots", "create", "-n", confYaml.NumPlots, "-k", confYaml.KSize, "-b", confYaml.Buffer, "-r", confYaml.Threads, "-f", farmKey, "-p", poolKey, "-t", confYaml.TempPath2, "-d", confYaml.FinalPath[current]}, " ")
+		for i := 0; i < confYaml.Total; i++ {
+			startTime := time.Now().Format("20060102")
+			LogFileName := strings.Join([]string{startTime, "_2_", strconv.Itoa(i), ".log"}, "")
+			logPath := strings.Join([]string{LogPath, LogFileName}, "/")
+			go RunExec(ChiaCmd, logPath)
+			time.Sleep(time.Duration(confYaml.Sleep) * time.Second)
+		}
 	}
 }
 

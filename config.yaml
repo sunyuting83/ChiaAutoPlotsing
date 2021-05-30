@@ -10,6 +10,8 @@ Threads : "2"
 Buckets : "128"
 ##TempPath 缓存目录##
 TempPath : "d:\\"
+##TempPath2 缓存2目录 如果只有1块缓存盘 请留空##
+TempPath2 : ""
 ##Total 进程总数##
 Total : 3
 ##Sleep 间隔时间 单位秒##
