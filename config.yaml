@@ -10,17 +10,16 @@ Threads : "2"
 Buckets : "128"
 ##TempPath 缓存目录##
 TempPath : "d:\\"
+##FinalPath 最终目录 机械硬盘目录，支持多硬盘，每行一个盘符##
+FinalPath : "e:\\"
 ##Total 进程总数##
 Total : 3
 ##Sleep 间隔时间 单位秒##
 Sleep : 60
+########################华丽分割线############################
 ##RunPath Chia运行目录 windows无需设置##
-RunPath : ""
+RunPath : "c:\\chia\\daemon"
 ##FarmerKey 农民公匙 留空自动获取第一个钱包的公匙##
 FarmerKey : ""
 ##PoolKey 矿池公匙 留空自动获取第一个钱包的公匙##
 PoolKey : ""
-##FinalPath 最终目录 机械硬盘目录，支持多硬盘，每行一个盘符##
-FinalPath :
-  - "e:\\"
-  - "f:\\"

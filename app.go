@@ -19,18 +19,18 @@ import (
 )
 
 type Config struct {
-	NumPlots  string   `yaml:"NumPlots"`
-	KSize     string   `yaml:"KSize"`
-	Buffer    string   `yaml:"Buffer"`
-	Threads   string   `yaml:"Threads"`
-	Buckets   string   `yaml:"Buckets"`
-	TempPath  string   `yaml:"TempPath"`
-	FinalPath []string `yaml:"FinalPath"`
-	Total     int      `yaml:"Total"`
-	Sleep     int      `yaml:"Sleep"`
-	RunPath   string   `yaml:"RunPath"`
-	FarmerKey string   `yaml:"FarmerKey"`
-	PoolKey   string   `yaml:"PoolKey"`
+	NumPlots  string `yaml:"NumPlots"`
+	KSize     string `yaml:"KSize"`
+	Buffer    string `yaml:"Buffer"`
+	Threads   string `yaml:"Threads"`
+	Buckets   string `yaml:"Buckets"`
+	TempPath  string `yaml:"TempPath"`
+	FinalPath string `yaml:"FinalPath"`
+	Total     int    `yaml:"Total"`
+	Sleep     int    `yaml:"Sleep"`
+	RunPath   string `yaml:"RunPath"`
+	FarmerKey string `yaml:"FarmerKey"`
+	PoolKey   string `yaml:"PoolKey"`
 }
 
 func main() {
@@ -62,27 +62,14 @@ func main() {
 		poolKey     string = confYaml.PoolKey
 	)
 	if runtime.GOOS == "windows" {
-		homedir, err := GetUserInfo()
-		if err != nil {
-			fmt.Println("获取用户目录失败")
-			os.Exit(0)
-		}
-		rootPath = strings.Join([]string{homedir, `AppData\Local\chia-blockchain`}, `\`)
 		appName = "chia.exe"
 	}
 	if !IsDir(rootPath) {
 		fmt.Println("获取Chia运行目录失败")
 		os.Exit(0)
 	}
-	if len(confYaml.FinalPath) > 0 {
-		for _, item := range confYaml.FinalPath {
-			if !IsDir(item) {
-				fmt.Println(strings.Join([]string{"获取缓存目录", item, "失败，请检查配置文件"}, " "))
-				os.Exit(0)
-			}
-		}
-	} else {
-		fmt.Println("获取数据目录失败，请检查配置文件")
+	if !IsDir(confYaml.FinalPath) {
+		fmt.Println(strings.Join([]string{"获取缓存目录", confYaml.FinalPath, "失败，请检查配置文件"}, " "))
 		os.Exit(0)
 	}
 	LogPath = strings.Join([]string{CurrentPath, "log"}, LinkPathStr)
@@ -123,30 +110,17 @@ func main() {
 	task := func() {
 		status, _, _, _ := isProcessExist(appName)
 		if !status {
-			time.Sleep(time.Duration(30) * time.Second)
-			current := GetCurrentNumber(NumberData, len(confYaml.FinalPath)-1)
-			WriteCurrentNumber(NumberData, current-1)
-			current = GetCurrentNumber(NumberData, len(confYaml.FinalPath)-1)
-			fmt.Println(current)
-			if current < 0 {
-				err := os.Remove(NumberData)
-
-				if err != nil {
-					fmt.Println("删除失败")
-				}
-				dir, err := ioutil.ReadDir(LogPath)
-				if err != nil {
-					fmt.Println("删除日志文件失败")
-				}
-				for _, d := range dir {
-					os.RemoveAll(path.Join([]string{LogPath, d.Name()}...))
-				}
-
-				fmt.Println(time.Now().Format("2006-01-02 15:04:05"))
-				fmt.Println("done")
-				os.Exit(0)
+			dir, err := ioutil.ReadDir(LogPath)
+			if err != nil {
+				fmt.Println("删除日志文件失败")
 			}
-			StartPlots(LogPath, NumberData, ChiaExec, farmKey, poolKey, *confYaml)
+			for _, d := range dir {
+				os.RemoveAll(path.Join([]string{LogPath, d.Name()}...))
+			}
+
+			fmt.Println(time.Now().Format("2006-01-02 15:04:05"))
+			fmt.Println("done")
+			os.Exit(0)
 		}
 	}
 	var ch chan int
@@ -174,9 +148,7 @@ func RunExec(ChiaExec, LogPath string) {
 	}
 }
 func StartPlots(LogPath, NumberData, ChiaExec, farmKey, poolKey string, confYaml Config) {
-	current := GetCurrentNumber(NumberData, len(confYaml.FinalPath)-1)
-
-	ChiaCmd := strings.Join([]string{ChiaExec, "plots", "create", "-n", confYaml.NumPlots, "-k", confYaml.KSize, "-b", confYaml.Buffer, "-r", confYaml.Threads, "-f", farmKey, "-p", poolKey, "-t", confYaml.TempPath, "-d", confYaml.FinalPath[current]}, " ")
+	ChiaCmd := strings.Join([]string{ChiaExec, "plots", "create", "-n", confYaml.NumPlots, "-k", confYaml.KSize, "-b", confYaml.Buffer, "-r", confYaml.Threads, "-f", farmKey, "-p", poolKey, "-t", confYaml.TempPath, "-d", confYaml.FinalPath}, " ")
 	for i := 0; i < confYaml.Total; i++ {
 		startTime := time.Now().Format("20060102")
 		LogFileName := strings.Join([]string{startTime, "_", strconv.Itoa(i), ".log"}, "")
