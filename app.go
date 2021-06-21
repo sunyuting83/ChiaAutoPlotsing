@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/exec"
 	"os/user"
-	"path"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -57,7 +56,6 @@ func main() {
 		ChiaAppPath string = confYaml.RunPath
 		rootPath    string = confYaml.RunPath
 		appName     string = "chia"
-		LogPath     string
 		farmKey     string = confYaml.FarmerKey
 		poolKey     string = confYaml.PoolKey
 	)
@@ -72,52 +70,22 @@ func main() {
 		fmt.Println(strings.Join([]string{"获取缓存目录", confYaml.FinalPath, "失败，请检查配置文件"}, " "))
 		os.Exit(0)
 	}
-	LogPath = strings.Join([]string{CurrentPath, "log"}, LinkPathStr)
-	if !IsDir(LogPath) {
-		err := os.Mkdir(LogPath, os.ModePerm)
-		if err != nil {
-			fmt.Println("创建日志目录失败，请重试")
-			os.Exit(0)
-		}
-	}
 	if !IsDir(confYaml.TempPath) {
 		fmt.Println("获取缓存目录失败，请检查配置文件")
 		os.Exit(0)
 	}
-	if runtime.GOOS == "windows" {
-		files, _ := ioutil.ReadDir(rootPath)
-		var versionNumber []string
-		for _, f := range files {
-			if strings.Contains(f.Name(), "app-") {
-				versionNumber = append(versionNumber, string(f.Name()))
-			}
-		}
-		ChiaAppPath = strings.Join([]string{rootPath, versionNumber[0], `resources\app.asar.unpacked\daemon`}, `\`)
-		if len(versionNumber) > 1 {
-			n := len(versionNumber) - 1
-			ChiaAppPath = strings.Join([]string{rootPath, versionNumber[n], `resources\app.asar.unpacked\daemon`}, `\`)
-		}
-	}
 	ChiaExec := GetChieExec(ChiaAppPath)
 	if len(confYaml.FarmerKey) <= 0 && len(confYaml.PoolKey) <= 0 {
-		farmKey, poolKey = GetPublicKey(ChiaExec)
+		fmt.Println("农田公钥和矿池公钥不能为空")
+		os.Exit(0)
 	}
 
-	NumberData := strings.Join([]string{CurrentPath, "nb"}, LinkPathStr)
-	StartPlots(LogPath, NumberData, ChiaExec, farmKey, poolKey, *confYaml)
+	StartPlots(ChiaExec, farmKey, poolKey, *confYaml)
 	fmt.Println(time.Now().Format("2006-01-02 15:04:05"))
 
 	task := func() {
 		status, _, _, _ := isProcessExist(appName)
 		if !status {
-			dir, err := ioutil.ReadDir(LogPath)
-			if err != nil {
-				fmt.Println("删除日志文件失败")
-			}
-			for _, d := range dir {
-				os.RemoveAll(path.Join([]string{LogPath, d.Name()}...))
-			}
-
 			fmt.Println(time.Now().Format("2006-01-02 15:04:05"))
 			fmt.Println("done")
 			os.Exit(0)
@@ -134,26 +102,23 @@ func main() {
 	<-ch
 }
 
-func RunExec(ChiaExec, LogPath string) {
+func RunExec(ChiaExec string) {
 	if runtime.GOOS == "windows" {
-		WinCmd := strings.Join([]string{`start `, ChiaExec, ` >> `, LogPath}, "")
+		WinCmd := strings.Join([]string{`start `, ChiaExec}, "")
 		cmd := exec.Command("cmd", "/C", WinCmd)
 		fmt.Println(cmd.Args)
 		cmd.Start()
 	} else {
-		LinCmd := strings.Join([]string{`nohup `, ChiaExec, ` > `, LogPath, " 2>&1"}, "")
+		LinCmd := strings.Join([]string{`nohup `, ChiaExec, " 2>&1"}, "")
 		cmd := exec.Command("/bin/bash", "-c", LinCmd)
 		fmt.Println(cmd.Args)
 		cmd.Start()
 	}
 }
-func StartPlots(LogPath, NumberData, ChiaExec, farmKey, poolKey string, confYaml Config) {
+func StartPlots(ChiaExec, farmKey, poolKey string, confYaml Config) {
 	ChiaCmd := strings.Join([]string{ChiaExec, "plots", "create", "-n", confYaml.NumPlots, "-k", confYaml.KSize, "-b", confYaml.Buffer, "-r", confYaml.Threads, "-f", farmKey, "-p", poolKey, "-t", confYaml.TempPath, "-d", confYaml.FinalPath}, " ")
 	for i := 0; i < confYaml.Total; i++ {
-		startTime := time.Now().Format("20060102")
-		LogFileName := strings.Join([]string{startTime, "_", strconv.Itoa(i), ".log"}, "")
-		logPath := strings.Join([]string{LogPath, LogFileName}, "/")
-		go RunExec(ChiaCmd, logPath)
+		go RunExec(ChiaCmd)
 		time.Sleep(time.Duration(confYaml.Sleep) * time.Second)
 	}
 }
@@ -346,23 +311,4 @@ func Byte2Int(data []byte) int {
 		ret = ret | (int(data[i]) << (i * 8))
 	}
 	return ret
-}
-
-func GetCurrentNumber(NumberData string, current int) (n int) {
-	if IsExist(NumberData) {
-		number, err := ioutil.ReadFile(NumberData)
-		if err != nil {
-			return 0
-		}
-		return Byte2Int(number)
-	} else {
-		os.Create(NumberData)
-		number := Int2Byte(current)
-		ioutil.WriteFile(NumberData, number, 0644)
-		return current
-	}
-}
-func WriteCurrentNumber(NumberData string, current int) {
-	number := Int2Byte(current)
-	ioutil.WriteFile(NumberData, number, 0644)
 }
