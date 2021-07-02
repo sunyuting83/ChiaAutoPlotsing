@@ -8,8 +8,8 @@ import (
 	"os/exec"
 	"os/user"
 	"path/filepath"
+	"regexp"
 	"runtime"
-	"strconv"
 	"strings"
 	"time"
 	"unsafe"
@@ -64,19 +64,23 @@ func main() {
 	}
 	if !IsDir(rootPath) {
 		fmt.Println("获取Chia运行目录失败")
+		time.Sleep(time.Duration(10) * time.Second)
 		os.Exit(0)
 	}
 	if !IsDir(confYaml.FinalPath) {
 		fmt.Println(strings.Join([]string{"获取缓存目录", confYaml.FinalPath, "失败，请检查配置文件"}, " "))
+		time.Sleep(time.Duration(10) * time.Second)
 		os.Exit(0)
 	}
 	if !IsDir(confYaml.TempPath) {
 		fmt.Println("获取缓存目录失败，请检查配置文件")
+		time.Sleep(time.Duration(10) * time.Second)
 		os.Exit(0)
 	}
 	ChiaExec := GetChieExec(ChiaAppPath)
 	if len(confYaml.FarmerKey) <= 0 && len(confYaml.PoolKey) <= 0 {
 		fmt.Println("农田公钥和矿池公钥不能为空")
+		time.Sleep(time.Duration(10) * time.Second)
 		os.Exit(0)
 	}
 
@@ -84,10 +88,11 @@ func main() {
 	fmt.Println(time.Now().Format("2006-01-02 15:04:05"))
 
 	task := func() {
-		status, _, _, _ := isProcessExist(appName)
+		status := isProcessExist(appName)
 		if !status {
 			fmt.Println(time.Now().Format("2006-01-02 15:04:05"))
-			fmt.Println("done")
+			fmt.Println("P盘任务结束，10秒后自动关闭本窗口")
+			time.Sleep(time.Duration(10) * time.Second)
 			os.Exit(0)
 		}
 	}
@@ -168,83 +173,38 @@ func GetChieExec(ChiaAppPath string) (ChiaExec string) {
 	return
 }
 
-func isProcessExist(appName string) (bool, string, int, int) {
-	if runtime.GOOS == "windows" {
-		appary := make(map[string]int)
-		cmd := exec.Command("cmd", "/C", "tasklist")
-		output, _ := cmd.Output()
-		n := strings.Index(string(output), "System")
-		if n == -1 {
-			fmt.Println("no find")
-			os.Exit(1)
+func isProcessExist(appName string) bool {
+	OS := runtime.GOOS
+	if OS == "windows" {
+		command := `ps -ef|grep "chia plots cerate"| grep -v grep`
+		c, _ := RunCommand(OS, command)
+		if len(c) > 0 {
+			return len(c) > 0
 		}
-		data := string(output)[n:]
-		fields := strings.Fields(data)
-		lange := []int{}
-		for k, v := range fields {
-			if v == appName {
-				appary[appName], _ = strconv.Atoi(fields[k+1])
-				lange = append(lange, appary[appName])
-			}
-		}
-		if len(lange) > 0 {
-			return true, appName, appary[appName], len(lange)
-		}
-		return false, appName, -1, 0
+		return false
 	}
-	command := strings.Join([]string{`ps -ef | grep -v "grep" | grep "`, appName, `" | awk '{print $2}'`}, "")
-	cmd := exec.Command("/bin/bash", "-c", command)
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		fmt.Println("StdoutPipe: " + err.Error())
-		return false, appName, -1, 0
+	command := `wmic process where name="chia.exe" get commandline 2>nul | find "create" 1>nul 2>nul && echo 1 || echo 0`
+	c := GetPublicWinCommandLine(OS, command)
+	if c == "1" {
+		return c == "1"
 	}
-
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		fmt.Println("StderrPipe: ", err.Error())
-		return false, appName, -1, 0
-	}
-
-	if err := cmd.Start(); err != nil {
-		fmt.Println("Start: ", err.Error())
-		return false, appName, -1, 0
-	}
-
-	bytesErr, err := ioutil.ReadAll(stderr)
-	if err != nil {
-		fmt.Println("ReadAll stderr: ", err.Error())
-		return false, appName, -1, 0
-	}
-
-	if len(bytesErr) != 0 {
-		fmt.Printf("stderr is not nil: %s", bytesErr)
-		return false, appName, -1, 0
-	}
-
-	bytes, err := ioutil.ReadAll(stdout)
-	if err != nil {
-		fmt.Println("ReadAll stdout: ", err.Error())
-		return false, appName, -1, 0
-	}
-
-	if err := cmd.Wait(); err != nil {
-		fmt.Println("Wait: ", err.Error())
-		return false, appName, -1, 0
-	}
-	data := strings.Split(string(bytes), "\n")
-	var newLen []string
-	for _, v := range data {
-		if len(v) > 0 {
-			newLen = append(newLen, v)
-		}
-	}
-	if len(newLen) > 0 {
-		return true, appName, -1, len(newLen)
-	}
-	return false, appName, -1, 0
+	return false
 }
 
+func GetPublicWinCommandLine(OS, command string) (s string) {
+	p, _ := RunCommand(OS, command)
+	p = CompressStr(p)
+	pList := strings.Split(p, "\r\n")
+	for _, v := range pList {
+		if len(v) > 0 {
+			if strings.Contains(v, "=") {
+				s = strings.Split(v, "=")[1]
+				break
+			}
+		}
+	}
+	return
+}
 func CmdAndChangeDirToFile(commandName string, params []string) {
 	cmd := exec.Command(commandName, params...)
 	fmt.Println(cmd.Args)
@@ -311,4 +271,57 @@ func Byte2Int(data []byte) int {
 		ret = ret | (int(data[i]) << (i * 8))
 	}
 	return ret
+}
+
+// RunCommand run command
+func RunCommand(OS, command string) (k string, err error) {
+	var cmd *exec.Cmd
+	if OS == "windows" {
+		cmd = exec.Command("cmd", "/C", command)
+	} else {
+		cmd = exec.Command("/bin/sh", "-c", command)
+	}
+
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return "", err
+	}
+
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		return "", err
+	}
+
+	if err := cmd.Start(); err != nil {
+		return "", err
+	}
+
+	bytesErr, err := ioutil.ReadAll(stderr)
+	if err != nil {
+		return "", err
+	}
+
+	if len(bytesErr) != 0 {
+		return "", errors.New("0")
+
+	}
+
+	bytes, err := ioutil.ReadAll(stdout)
+	if err != nil {
+		return "", err
+	}
+
+	if err := cmd.Wait(); err != nil {
+		return "", err
+	}
+	return string(bytes), nil
+}
+
+// CompressStr
+func CompressStr(str string) string {
+	if str == "" {
+		return ""
+	}
+	reg := regexp.MustCompile("\\s+")
+	return reg.ReplaceAllString(str, "")
 }
