@@ -19,6 +19,7 @@ import (
 )
 
 type Config struct {
+	Pool      bool     `yaml:"Pool"`
 	NumPlots  string   `yaml:"NumPlots"`
 	KSize     string   `yaml:"KSize"`
 	Buffer    string   `yaml:"Buffer"`
@@ -182,8 +183,11 @@ func RunExec(ChiaExec, LogPath string) {
 }
 func StartPlots(LogPath, NumberData, ChiaExec, farmKey, poolKey string, confYaml Config) {
 	current := GetCurrentNumber(NumberData, len(confYaml.FinalPath)-1)
-
-	ChiaCmd := strings.Join([]string{ChiaExec, "plots", "create", "-n", confYaml.NumPlots, "-k", confYaml.KSize, "-b", confYaml.Buffer, "-r", confYaml.Threads, "-f", farmKey, "-p", poolKey, "-t", confYaml.TempPath, "-d", confYaml.FinalPath[current]}, " ")
+	newPool := "-c"
+	if !confYaml.Pool {
+		newPool = "-p"
+	}
+	ChiaCmd := strings.Join([]string{ChiaExec, "plots", "create", "-n", confYaml.NumPlots, "-k", confYaml.KSize, "-b", confYaml.Buffer, "-r", confYaml.Threads, "-f", farmKey, newPool, poolKey, "-t", confYaml.TempPath, "-d", confYaml.FinalPath[current]}, " ")
 	for i := 0; i < confYaml.Total; i++ {
 		startTime := time.Now().Format("20060102")
 		LogFileName := strings.Join([]string{startTime, "_", strconv.Itoa(i), ".log"}, "")
