@@ -18,6 +18,7 @@ import (
 )
 
 type Config struct {
+	Pool      bool   `yaml:"Pool"`
 	NumPlots  string `yaml:"NumPlots"`
 	KSize     string `yaml:"KSize"`
 	Buffer    string `yaml:"Buffer"`
@@ -121,7 +122,11 @@ func RunExec(ChiaExec string) {
 	}
 }
 func StartPlots(ChiaExec, farmKey, poolKey string, confYaml Config) {
-	ChiaCmd := strings.Join([]string{ChiaExec, "plots", "create", "-n", confYaml.NumPlots, "-k", confYaml.KSize, "-b", confYaml.Buffer, "-r", confYaml.Threads, "-f", farmKey, "-p", poolKey, "-t", confYaml.TempPath, "-d", confYaml.FinalPath}, " ")
+	var pool string = "-c"
+	if !confYaml.Pool {
+		pool = "-p"
+	}
+	ChiaCmd := strings.Join([]string{ChiaExec, "plots", "create", "-n", confYaml.NumPlots, "-k", confYaml.KSize, "-b", confYaml.Buffer, "-r", confYaml.Threads, "-f", farmKey, pool, poolKey, "-t", confYaml.TempPath, "-d", confYaml.FinalPath}, " ")
 	for i := 0; i < confYaml.Total; i++ {
 		go RunExec(ChiaCmd)
 		time.Sleep(time.Duration(confYaml.Sleep) * time.Second)
