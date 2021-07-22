@@ -196,7 +196,7 @@ func StartPlots(LogPath, NumberData, ChiaExec, farmKey, poolKey string, confYaml
 		time.Sleep(time.Duration(confYaml.Sleep) * time.Second)
 	}
 	if len(confYaml.TempPath2) > 0 {
-		ChiaCmd := strings.Join([]string{ChiaExec, "plots", "create", "-n", confYaml.NumPlots, "-k", confYaml.KSize, "-b", confYaml.Buffer, "-r", confYaml.Threads, "-f", farmKey, "-p", poolKey, "-t", confYaml.TempPath2, "-d", confYaml.FinalPath[current]}, " ")
+		ChiaCmd := strings.Join([]string{ChiaExec, "plots", "create", "-n", confYaml.NumPlots, "-k", confYaml.KSize, "-b", confYaml.Buffer, "-r", confYaml.Threads, "-f", farmKey, newPool, poolKey, "-t", confYaml.TempPath2, "-d", confYaml.FinalPath[current]}, " ")
 		for i := 0; i < confYaml.Total; i++ {
 			startTime := time.Now().Format("20060102")
 			LogFileName := strings.Join([]string{startTime, "_2_", strconv.Itoa(i), ".log"}, "")
@@ -276,7 +276,7 @@ func isProcessExist(appName string) (bool, string, int, int) {
 		}
 		return false, appName, -1, 0
 	}
-	command := strings.Join([]string{`ps -ef | grep -v "grep" | grep "`, appName, `" | awk '{print $2}'`}, "")
+	command := strings.Join([]string{`ps -ef | grep -v "grep" | grep "`, "chia plots create", `" | awk '{print $2}'`}, "")
 	cmd := exec.Command("/bin/bash", "-c", command)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
