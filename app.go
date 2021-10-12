@@ -276,7 +276,7 @@ func isProcessExist(appName string) (bool, string, int, int) {
 		}
 		return false, appName, -1, 0
 	}
-	command := strings.Join([]string{`ps -ef | grep -v "grep" | grep "`, appName, `" | awk '{print $2}'`}, "")
+	command := strings.Join([]string{`ps -ef | grep -v "grep" | grep "`, "chia plots create", `" | awk '{print $2}'`}, "")
 	cmd := exec.Command("/bin/bash", "-c", command)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
